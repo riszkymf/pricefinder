@@ -2,6 +2,7 @@ import yaml
 import os
 import sys
 import json
+import requests
 
 from os import listdir
 from os.path import isfile,isdir,join,abspath
@@ -54,3 +55,11 @@ def collect_yaml_resource(folder):
     ext = ['yaml','yml']
     files_all = [f for f in listdir if isfile(join(folder,f))]
     return files_all
+
+def get_page(url,retries=20):
+    while retries >= 0:
+        result = requests.get(url)
+        if result.status_code is 200:
+            return result
+        else:
+            retries += -1
