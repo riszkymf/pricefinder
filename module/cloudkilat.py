@@ -1,23 +1,18 @@
 from bs4 import BeautifulSoup
 from libs.table import DataTable
-import requests
+from libs.util import get_page
 
 
-class CloudKilatHandler(object):
-    base_url = 'http://www.cloudkilat.com'
-    provider_name = 'cloudkilat.com'
-
-    def get_page(self):
-        result = requests.get(self.url)
-        return self.get_page() if result.status_code is not 200 else result
+base_url = 'http://www.cloudkilat.com'
+provider_name = 'cloudkilat'
 
 
-
-class VM(CloudKilatHandler):
+class VM(object):
     endpoint='/layanan/kilat-vm-2.0#harga'
     product_name = "VM 2.0"
     
     def __init__(self,**kwargs):
+        self.provider_name = provider_name
         for key,value in kwargs.items():
             try:
                 setattr(self,key,value)
@@ -27,8 +22,8 @@ class VM(CloudKilatHandler):
 
 
     def run(self):
-        self.url = self.base_url+self.endpoint
-        result = self.get_page()
+        self.url = base_url+self.endpoint
+        result = get_page(self.url)
         self.status_code = result.status_code
         data  = self.soup_parser(result)
         self.data = data
@@ -58,11 +53,12 @@ class VM(CloudKilatHandler):
         return result_data
 
 
-class ObjectStorage(CloudKilatHandler):
+class ObjectStorage(object):
     endpoint = "/layanan/kilat-storage#harga"
     product_name = "Object Storage"
 
     def __init__(self,**kwargs):
+        self.provider_name = provider_name
         for key,value in kwargs.items():
             try:
                 setattr(self,key,value)
@@ -72,8 +68,8 @@ class ObjectStorage(CloudKilatHandler):
 
 
     def run(self):
-        self.url = self.base_url + self.endpoint
-        result = self.get_page()
+        self.url = base_url + self.endpoint
+        result = get_page(self.url)
         self.status_code = result.status_code
         data  = self.soup_parser(result)
         self.data = data
@@ -100,11 +96,12 @@ class ObjectStorage(CloudKilatHandler):
 
 
 
-class Plesk(CloudKilatHandler):
+class Plesk(object):
     endpoint = "/layanan/kilat-plesk#harga"
     product_name = "Plesk"
 
     def __init__(self,**kwargs):
+        self.provider_name = provider_name
         for key,value in kwargs.items():
             try:
                 setattr(self,key,value)
@@ -114,8 +111,8 @@ class Plesk(CloudKilatHandler):
 
 
     def run(self):
-        self.url = self.base_url + self.endpoint
-        result = self.get_page()
+        self.url = base_url + self.endpoint
+        result = get_page(self.url)
         self.status_code = result.status_code
         data  = self.soup_parser(result)
         self.data = data
@@ -140,11 +137,12 @@ class Plesk(CloudKilatHandler):
         return result_data
     
 
-class Hosting(CloudKilatHandler):
+class Hosting(object):
     endpoint = '/layanan/kilat-hosting'
     product_name = "hosting"
 
     def __init__(self,**kwargs):
+        self.provider_name = provider_name
         for key,value in kwargs.items():
             try:
                 setattr(self,key,value)
@@ -154,8 +152,8 @@ class Hosting(CloudKilatHandler):
 
 
     def run(self):
-        self.url = self.base_url + self.endpoint
-        result = self.get_page()
+        self.url = base_url + self.endpoint
+        result = get_page(self.url)
         self.status_code = result.status_code
         data  = self.soup_parser(result)
         self.data = data
@@ -182,13 +180,12 @@ class Hosting(CloudKilatHandler):
         return result_data
 
 
-
-
-class KilatIron(CloudKilatHandler):
+class KilatIron(object):
     endpoint = '/layanan/kilat-iron'
     product_name = "Iron"
 
     def __init__(self,**kwargs):
+        self.provider_name = provider_name
         for key,value in kwargs.items():
             try:
                 setattr(self,key,value)
@@ -198,8 +195,8 @@ class KilatIron(CloudKilatHandler):
 
 
     def run(self):
-        self.url = self.base_url + self.endpoint
-        result = self.get_page()
+        self.url = base_url + self.endpoint
+        result = get_page(self.url)
         self.status_code = result.status_code
         data  = self.soup_parser(result)
         self.data = data
