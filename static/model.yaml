@@ -1,0 +1,35 @@
+- config:
+  - source: cloudkilat
+  - base_url : "http://www.cloudkilat.com"
+  - cycle : "7d"
+
+
+- data:
+  - name: "vm 2.0"
+  - url : "http://www.cloudkilat.com/layanan/kilat-vm-2.0#harga"
+  - table:
+    - table_config:
+      - tag: ul
+      - attribute:
+        - klass : "price-list list-with-header"
+      - data_location: content
+    - data:
+      - type:
+          - data_location:
+            - tag: h4
+            - attribute:
+              - klass: type
+      - duration:
+          - data_location:
+            - tag: div
+            - attribute:
+              - klass: duration
+      - price:
+          - data_location:
+            - tag: h5
+            - attribute:
+              - klass: price
+            - post: '000'
+      - specification:
+          - headers: ['RAM','']
+
