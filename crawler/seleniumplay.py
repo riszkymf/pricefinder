@@ -5,11 +5,24 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from crawler.libs.util import get_path
 from crawler.module.zettagrid import VirtualDataCenter
+import json
 
 d = VirtualDataCenter()
-driver=d.run()
-act,selects = d.simulate(driver)
+path = get_path('crawler/data/zettagrid.json')
+with open(path,'r') as f:
+    data = f.read()
+    data = json.loads(data)
 
+
+d.prices = data
+
+
+
+###
+d = VirtualDataCenter()
+driver=d.run()
+d.simulate(driver)
+d.save_data()
 
 
 DRIVER_PATH = get_path('chromedriver')

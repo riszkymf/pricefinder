@@ -1,3 +1,6 @@
+import json
+import re
+
 from bs4 import BeautifulSoup
 from crawler.libs.util import get_page
 
@@ -54,13 +57,9 @@ class PricingSimulator(object):
         else:
             return element.get_attribute(attribute)
 
-    def get_price_integer(self,value):
-        if "Rp " in value:
-            value = value.strip("Rp ")
-            value = value.split(".")
-            value = "".join(value)
-            return int(value)
-
+    def str2int(self,value):
+        number = re.sub("\D","",value)
+        return int(number)
 
 
 class VirtualDataCenter(PricingSimulator):
@@ -147,7 +146,7 @@ class VirtualDataCenter(PricingSimulator):
         storage_area = self.dive(storage_area_selector, product_area)
         print(storage_area.text)
         act.reset_actions()
-
+        prices.append(self.watch_price())
         # XPATH = //div[@class="panel-body"]/div[position()<5]//input --> input
         # XPATH = //div[@class="panel-body"]/div[position()<5]//div[contains(@class,"number-spin-btn-up")] --> button up
         inputs_xpath = '//div[@class="panel-body"]/div[position()<5]//input'
@@ -173,7 +172,14 @@ class VirtualDataCenter(PricingSimulator):
 
         self.prices = prices
 
-        return act, selects
+        return prices
+
+    def save_data(self):
+        path = get_path('crawler/data/zettagrid.json')
+        with open(path,'w+') as f:
+            data = self.prices
+            data = json.dumps(data)
+            f.write(data)
 
     def rearrange_data(self, data):
         result = list()
@@ -188,7 +194,28 @@ class VirtualDataCenter(PricingSimulator):
                            "unit": tmp[1],
                            "price": value}
                     d[keys[1]] = d__
+                else:
+                    d[key] = {"price": value}
                 if key is "total_price":
                     d['total_price'] = value
             result.append(d)
         return result
+
+    def step_analyzer(self,data=None):
+        if not data:
+            data = self.rearrange_data(self.prices)
+        d = {}
+        idx = len(data)
+        for i in range(0,idx-1):
+            for k1,v1,k2,v2 in zip(data[i].keys(),data[i].values(),data[i+1].keys(),data[i+1].values()):
+                if v1 != v2:
+                    key = k1.rstrip(" ").lstrip(" ")
+                    diff_price = self.str2int(v2['price']) - self.str2int(v1['price'])
+                    pricing = str(diff_price)
+                    if 'amount' in v1 and 'amount' in v2:
+                        amount_diff = self.str2int(v2['amount']) - self.str2int(v1['amount'])
+                        amount = "/"+str(amount_diff)+v1['unit']
+                    else:
+                        amount = "None"
+                    d[key] = {"pricing": pricing, "unit": amount}
+        return d
