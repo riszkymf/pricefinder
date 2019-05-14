@@ -4,25 +4,29 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from crawler.libs.util import get_path
-from crawler.module.zettagrid import VirtualDataCenter
+from crawler.module.zettagrid import *
 import json
 
-d = VirtualDataCenter()
-path = get_path('crawler/data/zettagrid.json')
+
+###
+d = VMBackup()
+driver=d.run()
+d.simulate(driver)
+d.save_data()
+
+d = VirtualServer()
+path = get_path('crawler/data/zettagrid_VirtualServer.json')
 with open(path,'r') as f:
     data = f.read()
     data = json.loads(data)
 
 
 d.prices = data
-
-
-
-###
-d = VirtualDataCenter()
-driver=d.run()
-d.simulate(driver)
-d.save_data()
+dd=d.step_analyzer()
+for k,v in dd.items():
+    print('======',k,'=======')
+    for k1,v1 in v.items():
+        print(k1,': ',v1)
 
 
 DRIVER_PATH = get_path('chromedriver')
