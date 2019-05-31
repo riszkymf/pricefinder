@@ -3,11 +3,15 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support import expected_conditions as EC
 from crawler.libs.util import get_path, flatten_dictionaries
 import json
 from time import sleep
 import re
 import inspect
+import operator
 
 DRIVER_PATH = {"chrome": get_path('chromedriver'),
                "firefox": get_path('geckodriver')}
@@ -34,9 +38,11 @@ class Extractors(object):
         key = self.value_name
         values = self.extractor.run()
         if values and self.is_postprocessed:
+            postprocessed_value = list()
             for i in values:
                 val = self.generate_postprocess(i)
-                self.postprocessed_value.append(val)
+                postprocessed_value.append(val)
+            values = postprocessed_value
         return {key: values}
 
     def generate_postprocess(self, value):
@@ -48,7 +54,8 @@ class Extractors(object):
             process = PostProcess(**kwargs)
             process_ = process.extractor(**process.kkwargs)
             value = process_.result
-    
+        return value
+
     def post_process_kwargs(self, data):
         d = {}
         if isinstance(data, dict):
@@ -116,7 +123,7 @@ class SeleniumElementsExtractor(object):
         height = driver.execute_script("return window.scrollY")
         self.max_height = int(height)
     
-    def scroll_page(self, cycle=0,startswith=0):
+    def scroll_page(self, cycle=0, startswith=0):
         driver = self.driver
         delta = self.max_height - self.current_height
         step_scroll = self.step_scroll + self.current_height
@@ -144,6 +151,7 @@ class SeleniumElementsExtractor(object):
         steps = driver.execute_script(script)
         self.step_scroll = steps
 
+
 class PostProcess(object):
 
     def __init__(self, type_, **kwargs):
@@ -151,7 +159,6 @@ class PostProcess(object):
         kkwargs = self.parse_arguments(extractor, **kwargs)
         self.extractor = extractor
         self.kkwargs = kkwargs
-
 
     def parse_arguments(self, extractor=None, **kwargs):
         func = getattr(extractor, '__init__')
@@ -165,7 +172,6 @@ class PostProcess(object):
             for k1, k2 in zip(args, keys):
                 extractor_args[k1] = kwargs.pop(k2)
         return extractor_args
-
 
 
 class RegexExtractBefore(PostProcess):
@@ -190,6 +196,7 @@ class RegexExtractAfter(PostProcess):
         else:
             self.result = result.group(1)
 
+
 class RegexRaw(PostProcess):
     def __init__(self, value, raw_regex):
         result = re.search(raw_regex, value)
@@ -201,6 +208,7 @@ class RegexRaw(PostProcess):
             if not result:
                 result_ = value
         self.result = result_
+
 
 class ExtractNumbers(PostProcess):
     def __init__(self, value):
@@ -227,6 +235,26 @@ class ExtractConvertFloat(PostProcess):
         else:
             self.result = float(num)
 
+
+class MathProcess(PostProcess):
+    OPERATIONS = {
+        "+": lambda x, y: operator.add(x, y),
+        "-": lambda x, y: operator.sub(x, y),
+        "/": lambda x, y: operator.truediv(x, y),
+        "//": lambda x, y: operator.floordiv(x, y),
+        "*": lambda x, y: operator.mul(x, y),
+        "x": lambda x, y: operator.mul(x, y)
+    }
+
+    def __init__(self, query, *args, **kwargs):
+        pass
+
+    def parse_query(self, query):
+        """ Query Model : {x: x, y:y, operation: (+-/*)}
+        If x or y is using obtained data, use key::key_name"""
+
+        pass
+
 ExtractorPostProcess = {
     'extract_before': RegexExtractBefore,
     'extract_after': RegexExtractAfter,
@@ -246,6 +274,9 @@ class ActionsHandler(object):
         self.action = action
         self.driver = driver
         self.query = query
+        for i in query:
+            if 'run' in i:
+                self.config_run(i['run'])
 
     def config_run(self, data):
         if isinstance(data, str) or isinstance(data, int):
@@ -264,20 +295,18 @@ class ActionsHandler(object):
 
     def execute(self):
         for i in self.action_chains:
-            if not i.parameter:
-                i.function().perform()
-            elif isinstance(i.parameter, dict):
-                i.function(**i.parameter).perform()
-            elif isinstance(i.parameter, list):
-                i.function(*i.parameter).perform()
-            else:
-                i.function(i.parameter).perform()
+            i.run()
+            self.action.reset_actions()
+        try:
+            print(self.action._actions)
+        except:
+            pass
 
     def generate_actions(self, data):
         action_chains = list()
         for i in data:
             if 'run' in i:
-                self.config_run(i['run'])
+                pass
             else:
                 query = self.parse_action(i)
                 act_ = self.generate_action(query)
@@ -301,31 +330,24 @@ class ActionsHandler(object):
         act_ = Actions(action, driver, query)
         return act_
 
+
 class Actions(ActionsHandler):
     action = None
     query = None
     action_execute = None
+    move_to_center = False
 
     def __init__(self, action, driver, query):
         self.action = action
         self.driver = driver
-        action_type = query.pop('action')
+        self.action_type = query.pop('action')
         query['driver'] = driver
         query['action'] = action
-        query = self.parse_arguments(action_type, query)
-        act_ = self.__getattribute__(action_type)(**query)
-        self.action_execute = act_
+        self.move_to_center = query['move_to_window_center']
+        self.query = self.parse_arguments(self.action_type, query)
 
-    @property
-    def function(self):
-        return self.action_execute[0]
-
-    @property
-    def parameter(self):
-        try:
-            return self.action_execute[1]
-        except:
-            return 0
+    def run(self):
+        return self.__getattribute__(self.action_type)(**self.query)
 
 
     def parse_arguments(self, action_type, query):
@@ -340,99 +362,119 @@ class Actions(ActionsHandler):
                 q[i] = flatten_dictionaries(query[i])
         return q
 
-
     def click(self, action, on_element=None):
         if on_element:
             on_element = self.get_element(on_element)
+            if self.move_to_center:
+                self._move_element_to_center(on_element)
         d = {'on_element': on_element}
-        return (action.click, d)
+        return action.click(**d).perform()
 
     def click_and_hold(self, action,  on_element=None):
         if on_element:
             on_element = self.get_element(element)
+            if self.move_to_center:
+                self._move_element_to_center(on_element)
         d = {'on_element': on_element}
-        return (action.click_and_hold, d)
+        return action.click_and_hold(**d).perform()
 
     def context_click(self, action, on_element=None):
         if on_element:
             on_element = self.get_element(element)
+            if self.move_to_center:
+                self._move_element_to_center(on_element)
         d = {'on_element': on_element}
-        return (action.context_clickm, d)
+        return action.context_click(**d).perform()
 
     def double_click(self, action, on_element=None):
         if on_element:
             on_element = self.get_element(element)
+            if self.move_to_center:
+                self._move_element_to_center(on_element)
         d = {'on_element': on_element}
-        return (action.double_click, d)
+        return action.double_click(**d).perform()
 
     def drag_and_drop(self, action, source, target):
         source = self.get_element(source)
+        if self.move_to_center:
+            self._move_element_to_center(source)
         d = {'source': source, 'target': target}
-        return (action.drag_and_drop, d)
+        return action.drag_and_drop(**d).perform()
 
     def drag_and_drop_by_offset(self, action, source, xoffset, yoffset):
+        driver = self.driver
         source = self.get_element(source)
+        if self.move_to_center:
+            self._move_element_to_center(source)
         d = {'source': source, 'xoffset': xoffset, 'yoffset': yoffset}
-        return (action.drag_and_drop_by_offset, d)
+        return action.drag_and_drop_by_offset(**d).perform()
 
     def key_down(self, action, value, element=None):
         value_ = self.modifier_key(value)
         if element:
             element = self.get_element(element)
+            if self.move_to_center:
+                self._move_element_to_center(element)
         if value == value_:
             return 0
         else:
             d = {'value': value, 'element': element}
-            return (action.key_down, d)
+            return action.key_down(**d).perform()
 
     def key_up(self, action, value, element=None):
         value_ = self.modifier_key(value)
         if element:
             element = self.get_element(element)
+            if self.move_to_center:
+                self._move_element_to_center(element)
         if value_ == value:
             return 0
         else:
             d = {'value': value, 'element': element}
-            return (action.key_up, d)
+            return action.key_up(**d).perform()
 
     def move_by_offset(self, action, xoffset, yoffset):
         d = {'xoffset': xoffset, 'yoffset': yoffset}
-        return (action.move_by_offset, d)
+        return action.move_by_offset(**d).perform()
 
     def move_to_element(self, action, to_element):
         driver = self.driver
         to_element = self.get_element(to_element)
+        if self.move_to_center:
+            self._move_element_to_center(to_element)
         d = {'to_element': to_element}
-        return (action.move_to_element, d)
+        return action.move_to_element(**d).perform()
 
     def move_to_element_with_offset(self, action, to_element, xoffset, yoffset):
         driver = self.driver
         to_element = self.get_element(to_element)
+        if self.move_to_center:
+            self._move_element_to_center(to_element)
         d = {'xoffset': xoffset, 'yoffset': yoffset, 'to_element': to_element}
-        return (action.move_to_element_with_offset, d)
+        return action.move_to_element_with_offset(**d).perform()
     
     def pause(self, action, seconds):
         d = {'seconds': seconds}
-        return (action.pause, d)
+        return action.pause(**d).perform()
 
     def release(self, action, on_element=None):
         if on_element:
             on_element = self.get_element(element)
         d = {'on_element': on_element}
-        return (action.release, d)
+        return action.release(**d).perform()
     
     def perform(self, action):
-        return (action.perform, None)
+        return action.perform()
 
     def reset_actions(self, action):
-        return (action.reset_actions, None)
+        return action
 
     def send_keys(self, action, value):
         if value['type'] == 'modifier':
             key_to_send = self.modifier_key(value['key'])
         else:
             key_to_send = value['key']
-        return (action.send_keys, key_to_send)
+        return action.send_keys(key_to_send).perform()
     
     def send_keys_to_element(self, action, element, value):
         if value['type'] == 'modifier':
@@ -440,17 +482,33 @@ class Actions(ActionsHandler):
         else:
             key_to_send = value['key']
         element = self.get_element(element)
+        if self.move_to_center:
+            self._move_element_to_center(element)
         d = [element, key_to_send]
-        return (action.send_keys_to_element, d)
+        return action.send_keys_to_element(*d).perform()
 
     def get_element(self, elements):
         driver = self.driver
         to_element = None
         for locator_, value in elements.items():
+            delay = 3
             type_ = elementFilterTool[locator_]
+            try:
+                myElem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((type_,value)))
+            except TimeoutException:
+                print ("Loading took too much time!")
             to_element = driver.find_element(type_, value)
         return to_element
 
+    def _move_element_to_center(self, element):
+        driver = self.driver
+        x = element.location['x']
+        y = element.location['y']
+        windowHeight = driver.execute_script("return window.innerHeight")
+        centerHeightY = (y-(windowHeight/3))
+        print("MOVE {}".format(centerHeightY))
+        driver.execute_script("return window.scrollTo(0,{});".format(centerHeightY))
+        sleep(0.5)
 
     def modifier_key(self, value):
         mod_key =  {'ADD': "u'\ue025'",
