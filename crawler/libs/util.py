@@ -9,6 +9,24 @@ from os import listdir
 from os.path import isfile,isdir,join,abspath
 from fake_useragent import UserAgent
 from currency_converter import CurrencyConverter
+from datetime import datetime
+
+def get_time():
+    time = datetime.now()
+    return time.strftime("%Y%m%d")
+
+def generate_file(filename, data):
+    filename = get_path(filename)
+    print("PATH : ", filename)
+    try:
+        with open("{}".format(filename), "w+") as f:
+            f.write(data)
+            f.close()
+            return True
+    except Exception as e:
+        print(str(e))
+        return False
+
 
 def load_yaml(filename):
     with open(filename, "r") as f:
@@ -54,7 +72,7 @@ def check_exist(path):
 
 def collect_yaml_resource(folder):
     ext = ['yaml', 'yml']
-    files_all = [f for f in listdir if isfile(join(folder,f))]
+    files_all = [f for f in listdir if isfile(join(folder, f))]
     return files_all
 
 
@@ -76,6 +94,7 @@ def get_rawpage(url, retries=20):
             return result
         else:
             retries = retries - 1
+
 
 def get_agents():
     dump_file = 'static/fakeagents.json'
@@ -115,3 +134,39 @@ def keypair_to_dict(key_pair):
     for key, val in key_pair:
         d[key] = val
     return d
+
+
+def flatten_dictionaries(input_):
+    output = dict()
+    try:
+        if isinstance(input_, list):
+            for map_ in input_:
+                output.update(map_)
+        else:  # Not a list of dictionaries
+            output = input_
+    except Exception as e:
+        return False
+    else:
+        return output
+
+def flatten_list(data):
+    try:
+        indexes = [True if len(i) is 1 else False for i in data]
+        if False in indexes:
+            return data
+        else:
+            data_ = [i[0] for i in data]
+            return flatten_list(data_)
+    except:
+        return data
+
+    
+def flatten_data(data):
+    if isinstance(data, list):
+        if len(data) == 1:
+            return data[0]
+    elif isinstance(data, dict):
+        d = {}
+        for key, val in data.items():
+            d[key] = flatten_data(val)
+        return d
