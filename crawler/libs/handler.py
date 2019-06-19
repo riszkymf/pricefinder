@@ -32,7 +32,8 @@ class Worker(object):
         options = Options()
         option.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")        self.driver = webdriver.Chrome(self.driverPath, options=options)
+        options.add_argument("--disable-dev-shm-usage")        
+        self.driver = webdriver.Chrome(self.driverPath, options=options)
 
     def get(self,url):
         self.driver.get(url)
