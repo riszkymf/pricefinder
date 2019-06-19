@@ -30,7 +30,7 @@ class Worker(object):
     def __init__(self, *args, **kwargs):
         task_ = list()
         options = Options()
-        option.add_argument("--headless")
+        options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")        
         self.driver = webdriver.Chrome(self.driverPath, options=options)
