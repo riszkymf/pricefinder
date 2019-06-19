@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
-from crawler.libs.util import get_path, flatten_dictionaries
+from crawler.libs.util import get_path, flatten_dictionaries,kurs
 import json
 from time import sleep
 import re
@@ -28,15 +28,36 @@ elementFilterTool = {"id": By.ID,
 class Extractors(object):
     value_name = None
     is_postprocessed = False
+    _pre_actions = None
+    is_preaction = False
+    _preactions_chains = None
+    static = False
 
     def __init__(self, **kwargs):
         self.postprocess = list()
         self.extractor = SeleniumElementsExtractor(**kwargs)
         self.postprocessed_value = list()
 
+    def _configure_preactions(self,action,driver):
+        action_chains = list()
+        chain = self._pre_actions
+        for i in chain:
+            tmp = ActionsHandler(action,driver,
+                                 i['chain'],i['chain_name'])
+        action_chains.append(tmp)
+        self._preactions_chains = action_chains
+
     def dump_value(self):
         key = self.value_name
-        values = self.extractor.run()
+        if self.is_preaction:
+            for act in self._preactions_chains:
+                act.run()
+            values = self.extractor.run()
+        else:
+            if self.extractor.static:
+                values = [{"static": self.extractor.run()[0]}]
+            else:
+                values = self.extractor.run()
         if values and self.is_postprocessed:
             postprocessed_value = list()
             for i in values:
@@ -87,12 +108,13 @@ class SeleniumElementsExtractor(object):
     max_height = None
     cycle = 0
 
-    def __init__(self, type_, value, driver, attribute=None):
+    def __init__(self, type_, static, value, driver, attribute=None):
         self.driver = driver
         self.attribute = attribute
         type_ = type_.lower()
         self.filter_ = elementFilterTool[type_]
         self.value = value
+        self.static = static
 
     def run(self):
         driver = self.driver
@@ -156,6 +178,8 @@ class PostProcess(object):
 
     def __init__(self, type_, **kwargs):
         extractor = ExtractorPostProcess[type_]
+        if type_ == 'math':
+            kkwargs = self.generate_math_args(**kwargs)
         kkwargs = self.parse_arguments(extractor, **kwargs)
         self.extractor = extractor
         self.kkwargs = kkwargs
@@ -173,6 +197,9 @@ class PostProcess(object):
                 extractor_args[k1] = kwargs.pop(k2)
         return extractor_args
 
+    def generate_math_args(self,**kwargs):
+        d = {'query': kwargs['math'], 'value': kwargs['value']}
+        return d
 
 class RegexExtractBefore(PostProcess):
 
@@ -180,9 +207,9 @@ class RegexExtractBefore(PostProcess):
         regex = '(.*)\{}'.format(character)
         result = re.search(regex, value)
         if not result:
-            self.result = result.group(1)
-        else:
             self.result = value
+        else:
+            self.result = result.group(1)
 
 
 class RegexExtractAfter(PostProcess):
@@ -235,6 +262,25 @@ class ExtractConvertFloat(PostProcess):
         else:
             self.result = float(num)
 
+class ConvertCurrency(PostProcess):
+    def __init__(self,value,currency):
+        try:
+            tmp=int(value)
+            result = kurs(tmp,currency.upper(),"IDR")
+            self.result = int(result)
+        except Exception:
+            self.result = value
+
+class InsertStringAfter(PostProcess):
+    def __init__(self,value,string):
+        tmp = str(value)+" {}".format(string)
+        self.result = tmp
+
+class InsertStringBefore(PostProcess):
+    def __init__(self,value,string):
+        tmp = "{} ".format(string)+str(value)
+        self.result = tmp
+
 
 class MathProcess(PostProcess):
     OPERATIONS = {
@@ -246,14 +292,30 @@ class MathProcess(PostProcess):
         "x": lambda x, y: operator.mul(x, y)
     }
 
-    def __init__(self, query, *args, **kwargs):
-        pass
+    def __init__(self, query, value, *args, **kwargs):
+        self.operator = query['operator']
+        self.x = value
+        self.y = query['y']
 
-    def parse_query(self, query):
+    @property
+    def result(self):
         """ Query Model : {x: x, y:y, operation: (+-/*)}
         If x or y is using obtained data, use key::key_name"""
+        try:
+            x = float(self.x)
+            y = float(self.y)
+            operator = self.operator
+            result_ = self.OPERATIONS[operator](x,y)
+            return round(result_,2)
+        except Exception:
+            return self.x
 
-        pass
+class RemoveStrings(PostProcess):
+    def __init__(self,value,character):
+        value = str(value)
+        result = value.strip(character)
+        self.result = result
+
 
 ExtractorPostProcess = {
     'extract_before': RegexExtractBefore,
@@ -262,6 +324,11 @@ ExtractorPostProcess = {
     'extract_numbers': ExtractNumbers,
     'extract_convert_int': ExtractConvertInt,
     'extract_convert_float': ExtractConvertFloat,
+    'math': MathProcess,
+    'convert_currency': ConvertCurrency,
+    'remove_strings': RemoveStrings,
+    'insert_string_after': InsertStringAfter,
+    'insert_string_before': InsertStringBefore
 }
 
 
@@ -297,10 +364,6 @@ class ActionsHandler(object):
         for i in self.action_chains:
             i.run()
             self.action.reset_actions()
-        try:
-            print(self.action._actions)
-        except:
-            pass
 
     def generate_actions(self, data):
         action_chains = list()
@@ -343,7 +406,10 @@ class Actions(ActionsHandler):
         self.action_type = query.pop('action')
         query['driver'] = driver
         query['action'] = action
-        self.move_to_center = query['move_to_window_center']
+        try:
+            self.move_to_center = query['move_to_window_center']
+        except Exception:
+            self.move_to_center = False
         self.query = self.parse_arguments(self.action_type, query)
 
     def run(self):
@@ -396,6 +462,7 @@ class Actions(ActionsHandler):
 
     def drag_and_drop(self, action, source, target):
         source = self.get_element(source)
+        target = self.get_element(target)
         if self.move_to_center:
             self._move_element_to_center(source)
         d = {'source': source, 'target': target}
@@ -506,9 +573,8 @@ class Actions(ActionsHandler):
         y = element.location['y']
         windowHeight = driver.execute_script("return window.innerHeight")
         centerHeightY = (y-(windowHeight/3))
-        print("MOVE {}".format(centerHeightY))
         driver.execute_script("return window.scrollTo(0,{});".format(centerHeightY))
-        sleep(0.5)
+        sleep(0.1)
 
     def modifier_key(self, value):
         mod_key =  {'ADD': "u'\ue025'",
@@ -580,3 +646,5 @@ class Actions(ActionsHandler):
             return mod_key[value]
         else:
             return value
+
+

@@ -106,4 +106,13 @@ venv.bak/
 .vscode
 /data
 samplepage.html
-geckodriver
+*.ipynb
+.ipynb_checkpoints
+ipynb
+classtest.py
+js.html
+workerconfig.yaml
+extensions/
+extractors_2.py
+
+API/

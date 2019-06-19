@@ -4,13 +4,14 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from crawler.libs.util import get_path
-from crawler.module.zettagrid import *
+from crawler.libs.parser import Worker
 import json
 
+worker = Worker()
 
 ###
 d = VMBackup()
-driver=d.run()
+driver = d.run()
 d.simulate(driver)
 d.save_data()
 
