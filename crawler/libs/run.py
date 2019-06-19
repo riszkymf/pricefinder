@@ -9,7 +9,6 @@ import requests
 
 def load_crawler_configuration(path):
     files = get_all(path)
-    print(files)
     f_yaml = list()
     for f in files:
         try:
