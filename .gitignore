@@ -102,3 +102,17 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+.vscode
+/data
+samplepage.html
+*.ipynb
+.ipynb_checkpoints
+ipynb
+classtest.py
+js.html
+workerconfig.yaml
+extensions/
+extractors_2.py
+
+API/
