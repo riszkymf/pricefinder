@@ -30,9 +30,9 @@ class Worker(object):
     def __init__(self, *args, **kwargs):
         task_ = list()
         options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")        
+        # options.add_argument("--headless")
+        # options.add_argument("--no-sandbox")
+        # options.add_argument("--disable-dev-shm-usage")        
         self.driver = webdriver.Chrome(self.driverPath, options=options)
 
     def get(self,url):
@@ -82,6 +82,7 @@ class ProductCrawler(CompanyDetails):
     skip = False
     content_result = list()
     is_headless = False
+    dump_to_database: True
 
     def __init__(self, config, *args, **kwargs):
         super(ProductCrawler, self).__init__(**config)
@@ -105,6 +106,8 @@ class ProductCrawler(CompanyDetails):
                 self.skip = True
             elif key == 'currency_used':
                 self.currency_used = value
+            elif key == 'dump_to_database':
+                self.dump_to_database = value
             elif key == 'action_chains':
                 chain_query = list()
                 self.with_action = True

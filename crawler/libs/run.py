@@ -22,17 +22,17 @@ def load_crawler_configuration(path):
     
 
 
-def run(path=CONF_PATH,force_headless=False,force_dump=True,dump_location=DUMP_LOCATION):
+def run(path=CONF_PATH,force_headless=False,force_dump=False,dump_location=DUMP_LOCATION):
     crawler_result = list()
     configs = load_crawler_configuration(path)
     for datas in configs:
         result = list()
-        chck = list()
+        result_ = {"company": None, "data": list()}
+        write_to_json = {"company": None, "data": list()}
         cfg = datas[0]
         cfg = flatten_dictionaries(cfg['config'])
         cfg['company_name'] = cfg.pop('name')
         product_details = {}
-        result_ = {"company": None, "data": list()}
         for row in datas:
             if 'product' not in row:
                 continue
@@ -40,19 +40,22 @@ def run(path=CONF_PATH,force_headless=False,force_dump=True,dump_location=DUMP_L
                 prods = row['product']
                 prods_ = flatten_dictionaries(prods)
                 d = ProductCrawler(cfg,**prods_)
-                d.is_headless = force_headless
                 _company_details = d.company_detail
                 d.config_worker()
                 dd=d.run()
+                normalized_data = d.normalize(dd)
                 d.write_result(d.normalize(dd))
                 _tmp = d.crawler_result()
-                result_['data'].append(_tmp)
-                chck.append(d.normalize(dd))
+                if d.dump_to_database :
+                    result_['data'].append(_tmp)
+                write_to_json['data'].append(_tmp)
                 d.driver.quit()
                 result.append(dd)
         result_['company'] = _company_details
-        dump_json_data(result_)
+        dump_json_data(write_to_json)
         crawler_result.append(result_)
+    if crawler_result and force_dump:
+        failure = register_data(crawler_result)
     return crawler_result
 
 def dump_json_data(data):
@@ -77,7 +80,6 @@ def register_data(data):
             except Exception:
                 id_company_product = None
                 nm_company_product = item['nm_product_name']
-            print(nm_company_product,id_company_product)
             result = register_content(item,id_company_product,nm_company_product)
             fail = fail+result
     return fail

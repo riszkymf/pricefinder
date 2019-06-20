@@ -51,6 +51,7 @@ def register_company(data):
     response = post_requests("/api/company",data_send)
     tmp = response.json()
     if tmp['data']:
+        print(response)
         return response
     else:
         data_send = {"url_company": companyDetails['url_company']}
@@ -62,6 +63,7 @@ def register_company(data):
         else:
             insert_json = build_json("insert",companyDetails)
             result = post_requests("/api/company",insert_json)
+            print(result.json())
             return result
 
 def register_product_type(data):
@@ -162,7 +164,6 @@ def register_content(result_data,id_company_product,nm_company_product=None):
 
 def register_hosting(input_data,id_company_product,nm_company_product=None):
     json_template = {
-        "id_hosting": None,
         "id_company_product": None,
         'spec_price': None,
         "spec_storage": None,
@@ -233,8 +234,6 @@ def register_vm(input_data,id_company_product,nm_company_product=None):
         d_send['date_time'] = input_data['datetime']
         d_send['id_company_product'] = str(id_company_product)
         json_send = build_json('insert',d_send)
-        if nm_company_product == 'storage':
-            print(json_send)
         res = post_requests('api/vm',json_send)
         if find_failure(res):
             failure.append(row)  
