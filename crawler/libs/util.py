@@ -17,7 +17,6 @@ def get_time():
 
 def generate_file(filename, data):
     filename = get_path(filename)
-    print("PATH : ", filename)
     try:
         with open("{}".format(filename), "w+") as f:
             f.write(data)
@@ -170,3 +169,11 @@ def flatten_data(data):
         for key, val in data.items():
             d[key] = flatten_data(val)
         return d
+
+def read_file(filename):
+    try:
+        with open(filename,'r') as f:
+            data = f.read()
+    except:
+        data = None
+    return data

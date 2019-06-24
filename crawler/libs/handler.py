@@ -188,6 +188,34 @@ class ProductCrawler(CompanyDetails):
         contents = ContentHandler(content)
         return contents.get_value()
 
+    def check_html_changes(self):
+        new_content = self.get_html_content()
+        old_content = self.html_content
+        if new_content != old_content:
+            return False
+        else :
+            return True
+
+
+    def get_html_content(self,dump=False):
+        url = self.get_url()
+        content = get_page(url)
+        content = content.text
+        if dump:
+            filename = self.company_name + ".txt"
+            file_path = "{}/{}".format(HTML_LOCATION,filename)
+            file_path = get_path(file_path)
+            generate_file(file_path,content)
+        else:
+            return content
+
+    @property
+    def html_content(self):
+        filename = self.company_name+".txt"
+        path = '/html_source/{}'.format(filename)
+        path = get_path(path)
+        return read_file(path)
+
 #   Obtain data for every action in action chains. 
     def run(self):
         if self.action_chains:
