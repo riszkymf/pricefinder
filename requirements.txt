@@ -67,5 +67,5 @@ vine==1.3.0
 w3lib==1.20.0
 Werkzeug==0.15.2
 wrapt==1.11.1
-WsgiDAV==3.0.0
+WsgiDAV==4.1.0
 zope.interface==4.6.0
